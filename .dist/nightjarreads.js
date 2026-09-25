@@ -43,7 +43,6 @@ var plugin_exports = {};
 __export(plugin_exports, {
   default: () => plugin_default
 });
-module.exports = __toCommonJS(plugin_exports);
 
 // src/parsers.ts
 var JSON_STR = '((?:[^"\\\\]|\\\\.)*)';
@@ -187,7 +186,7 @@ function parseNovelPage(html, flight, slug) {
   details.chapters.sort((a, b) => a.number - b.number);
   return details;
 }
-var LOCKED_MESSAGE = "<p><strong>This chapter is locked on Nightjar Reads.</strong></p><p>It is a premium chapter \u2014 unlock it on nightjarreads.com to read it here.</p>";
+var LOCKED_MESSAGE = "<p><strong>This chapter is locked on Nightjar Reads.</strong></p><p>It is a premium chapter \\u2014 unlock it on nightjarreads.com to read it here.</p>";
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -197,7 +196,7 @@ function parseChapterPage(flight) {
   if (!m) return null;
   let paras;
   try {
-    paras = JSON.parse('"' + m[1] + '"');
+    paras = JSON.parse('["' + m[1] + '"]');
   } catch (e) {
     return null;
   }
@@ -230,7 +229,6 @@ var NightjarReads = class {
   constructor() {
     __publicField(this, "id", "nightjarreads");
     __publicField(this, "name", "Nightjar Reads");
-    __publicField(this, "icon", "src/en/nightjarreads/icon.png");
     __publicField(this, "site", "https://nightjarreads.com");
     __publicField(this, "version", "1.0.0");
     __publicField(this, "resolveUrl", (path, _isNovel) => this.site + path);
@@ -288,7 +286,6 @@ var NightjarReads = class {
   }
   searchNovels(searchTerm, pageNo) {
     return __async(this, null, function* () {
-      if (pageNo > 1) return [];
       const html = yield (0, import_fetch.fetchText)(
         this.site + "/search?q=" + encodeURIComponent(searchTerm)
       );
@@ -302,3 +299,4 @@ var NightjarReads = class {
   }
 };
 var plugin_default = new NightjarReads();
+exports.default = plugin_default;
