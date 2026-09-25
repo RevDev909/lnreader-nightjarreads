@@ -45,7 +45,7 @@ __export(plugin_exports, {
 });
 
 // src/parsers.ts
-var JSON_STR = '((?:[^"\\\\]|\\\\.)*)';
+var JSON_STR = '((?:[^"\\]|\\.)*)';
 function unescapeFlight(s) {
   return s.replace(/\\"/g, '"').replace(/\\'/g, "'");
 }
@@ -186,7 +186,7 @@ function parseNovelPage(html, flight, slug) {
   details.chapters.sort((a, b) => a.number - b.number);
   return details;
 }
-var LOCKED_MESSAGE = "<p><strong>This chapter is locked on Nightjar Reads.</strong></p><p>It is a premium chapter \\u2014 unlock it on nightjarreads.com to read it here.</p>";
+var LOCKED_MESSAGE = "<p><strong>This chapter is locked on Nightjar Reads.</strong></p><p>It is a premium chapter \u2014 unlock it on nightjarreads.com to read it here.</p>";
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -223,20 +223,56 @@ function parseSearchResults(flight, query) {
 }
 
 // src/plugin.ts
-var import_fetch = require("@libs/fetch");
-var import_novelStatus = require("@libs/novelStatus");
+function loadFetchLib() {
+  try {
+    return require("@libs/fetch") || {};
+  } catch (e) {
+    return {};
+  }
+}
+function loadNovelStatus() {
+  try {
+    const lib = require("@libs/novelStatus");
+    if (lib && lib.NovelStatus) return lib.NovelStatus;
+  } catch (e) {
+  }
+  return {
+    Unknown: "Unknown",
+    Ongoing: "Ongoing",
+    Completed: "Completed",
+    Licensed: "Licensed",
+    PublishingFinished: "Publishing Finished",
+    Cancelled: "Cancelled",
+    OnHiatus: "On Hiatus"
+  };
+}
+var fetchLib = loadFetchLib();
+var NovelStatus = loadNovelStatus();
+function fetchText(url) {
+  return __async(this, null, function* () {
+    if (typeof fetchLib.fetchText === "function") {
+      return fetchLib.fetchText(url);
+    }
+    if (typeof fetchLib.fetchApi === "function") {
+      const res = yield fetchLib.fetchApi(url);
+      if (res && typeof res.text === "function") return res.text();
+    }
+    throw new Error("No fetch implementation provided by the host app");
+  });
+}
 var NightjarReads = class {
   constructor() {
     __publicField(this, "id", "nightjarreads");
     __publicField(this, "name", "Nightjar Reads");
+    __publicField(this, "icon", "src/en/nightjarreads/icon.png");
     __publicField(this, "site", "https://nightjarreads.com");
-    __publicField(this, "version", "1.0.0");
+    __publicField(this, "version", "1.0.1");
     __publicField(this, "resolveUrl", (path, _isNovel) => this.site + path);
   }
   popularNovels(pageNo, _options) {
     return __async(this, null, function* () {
       if (pageNo > 1) return [];
-      const html = yield (0, import_fetch.fetchText)(this.site + "/browse?sort=popular");
+      const html = yield fetchText(this.site + "/browse?sort=popular");
       return parseNovelEntries(extractFlightText(html)).map((n) => ({
         name: n.title,
         path: "/novel/" + n.slug,
@@ -247,15 +283,15 @@ var NightjarReads = class {
   parseNovel(novelPath) {
     return __async(this, null, function* () {
       const slug = novelPath.split("/").filter(Boolean).pop() || "";
-      const html = yield (0, import_fetch.fetchText)(this.site + novelPath);
+      const html = yield fetchText(this.site + novelPath);
       const d = parseNovelPage(html, extractFlightText(html), slug);
-      let status = import_novelStatus.NovelStatus.Unknown;
-      if (d.status === "Ongoing") status = import_novelStatus.NovelStatus.Ongoing;
-      else if (d.status === "Completed") status = import_novelStatus.NovelStatus.Completed;
+      let status = NovelStatus.Unknown;
+      if (d.status === "Ongoing") status = NovelStatus.Ongoing;
+      else if (d.status === "Completed") status = NovelStatus.Completed;
       else if (d.status === "On Hiatus" || d.status === "Hiatus")
-        status = import_novelStatus.NovelStatus.OnHiatus;
+        status = NovelStatus.OnHiatus;
       else if (d.status === "Cancelled" || d.status === "Dropped")
-        status = import_novelStatus.NovelStatus.Cancelled;
+        status = NovelStatus.Cancelled;
       const novel = {
         path: novelPath,
         name: d.name,
@@ -276,7 +312,7 @@ var NightjarReads = class {
   }
   parseChapter(chapterPath) {
     return __async(this, null, function* () {
-      const html = yield (0, import_fetch.fetchText)(this.site + chapterPath);
+      const html = yield fetchText(this.site + chapterPath);
       const content = parseChapterPage(extractFlightText(html));
       if (content === null) {
         return "<p><strong>Could not load this chapter.</strong></p><p>It may be locked or temporarily unavailable on Nightjar Reads.</p>";
@@ -286,7 +322,8 @@ var NightjarReads = class {
   }
   searchNovels(searchTerm, pageNo) {
     return __async(this, null, function* () {
-      const html = yield (0, import_fetch.fetchText)(
+      if (pageNo > 1) return [];
+      const html = yield fetchText(
         this.site + "/search?q=" + encodeURIComponent(searchTerm)
       );
       const flight = extractFlightText(html);
@@ -300,3 +337,4 @@ var NightjarReads = class {
 };
 var plugin_default = new NightjarReads();
 exports.default = plugin_default;
+try { if (typeof module !== "undefined" && module && module.exports) module.exports.default = plugin_default; } catch (e) {}
