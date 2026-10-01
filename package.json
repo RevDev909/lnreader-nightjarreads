@@ -1,0 +1,13 @@
+{
+  "name": "lnreader-nightjarreads",
+  "version": "1.0.5",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "esbuild src/parsers.ts --bundle --format=esm --platform=node --outfile=test/parsers.bundle.mjs --log-level=error && node test/test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3"
+  }
+}
